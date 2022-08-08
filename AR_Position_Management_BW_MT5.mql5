@@ -1,0 +1,215 @@
+//+------------------------------------------------------------------+
+//|                                                      ProjectName |
+//|                                      Copyright 2020, CompanyName |
+//|                                       http://www.companyname.net |
+//+------------------------------------------------------------------+
+#include <Trade/Trade.mqh>
+
+input ENUM_TIMEFRAMES TimeFrame = 5; // Time frame
+input int TslOffsetPoints = 20; // Points above/below the MA
+
+input int MaPeriod = 8; // MA Period
+input int MaShift = 5; // MA Shift
+
+input ENUM_MA_METHOD TslMaMethod = MODE_SMMA; // MA Method
+input ENUM_APPLIED_PRICE TslMaAppPrice = PRICE_CLOSE; // MA Price
+int barsTotal;
+
+double mainUpper = 0;
+double mainLower = 0;
+
+double mainUpperFractal = 0;
+double mainLowerFractal = 0;
+
+input bool fractalsTSL = false;
+input bool movingAverageTSL = true;
+
+int maShift;
+
+int handleFractal;
+int handleMA;
+
+string text;
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+int OnInit()
+  {
+   handleFractal = iFractals(_Symbol, TimeFrame);
+   handleMA = iMA(_Symbol, TimeFrame, MaPeriod, MaShift, TslMaMethod, TslMaAppPrice);
+
+   text = "-----------------------------\nPosition Management EA\n";
+
+   return (INIT_SUCCEEDED);
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+  {
+
+
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void OnTick()
+  {
+   int bars = iBars(_Symbol, TimeFrame);
+   int totalPos = PositionsTotal();
+
+   if(barsTotal != bars && totalPos > 0)  // New bar appeared on the chart
+     {
+      barsTotal = bars;
+
+      double fracUpper[];
+      double fracLower[];
+
+      CopyBuffer(handleFractal, UPPER_LINE, 3, 1, fracUpper);
+      CopyBuffer(handleFractal, LOWER_LINE, 3, 1, fracLower);
+
+      if(fracUpper[0] != EMPTY_VALUE)
+        {
+         mainUpper = NormalizeDouble(fracUpper[0] + TslOffsetPoints * _Point, 4);
+        }
+
+      if(fracLower[0] != EMPTY_VALUE)
+        {
+         mainLower = NormalizeDouble(fracLower[0] - TslOffsetPoints * _Point, 4);
+        }
+
+      text += "------------------------------\n";
+      text += "Upper Fractal =>" + DoubleToString(mainUpper, 4) + "\n";
+      text += "Lower Fractal =>" + DoubleToString(mainLower, 4) + "\n";
+      text += "MA: Period = " +TslMaMethod+  " | Shift = " + MaShift + " | Type = " + TslMaMethod + " | TF = "  + TimeFrame + "\n";
+      text += "Fractal TSL = [ " + fractalsTSL + " ]\n"+ "Moving Average TSL = [ " + movingAverageTSL + " ]\n";
+
+      for(int i = 0; i < totalPos; i++)
+        {
+         ulong posTicket = PositionGetTicket(i);
+
+         if(PositionSelectByTicket(posTicket))
+           {
+            if(PositionGetString(POSITION_SYMBOL) == _Symbol)
+              {
+               CTrade trade;
+               double posOpenPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+               double posSl = PositionGetDouble(POSITION_SL);
+               double posTp = PositionGetDouble(POSITION_TP);
+
+               double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+               double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+
+               if(fractalsTSL)
+                 {
+
+                  // --------------------
+                  // --- BUY POSITION ---
+                  // --------------------
+
+                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)  // checking if the open position if has type BUY
+                    {
+                     // ---
+
+                     if(posSl < mainLower && bid > mainLower)
+                       {
+                        double sl = mainLower;
+
+                        if(sl > posSl)
+                          {
+
+                           if(trade.PositionModify(posTicket, sl, posTp))
+                              ;
+                             {
+                              Print(__FUNCTION__, " > Position #", posTicket, " was modified by Fractal tsl. BUY");
+                             }
+                          }
+                       }
+                    }
+
+                  // ---------------------
+                  // --- SELL POSITION ---
+                  // ---------------------
+                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)
+                    {
+                     //---
+                     if(posSl > mainUpper && ask < mainUpper)
+                       {
+                        double sl = mainUpper;
+
+                        if(sl < posSl || posSl == 0)  //&& sl > mainUpper
+                          {
+                           if(trade.PositionModify(posTicket, sl, posTp))
+                              ;
+                             {
+                              Print(__FUNCTION__, " > Position #", posTicket, " was modified by Fractal tsl. SELL");
+                             }
+                          }
+                       }
+                    }
+                 }
+
+               if(movingAverageTSL)
+                 {
+
+                  // --------------------
+                  // --- BUY POSITION ---
+                  // --------------------
+
+                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)  // checking if the open position if has type BUY
+                    {
+                     // ---
+
+                     if(posSl < mainLower && bid > mainLower)
+                       {
+                        double sl = mainLower;
+
+                        if(sl > posSl)
+                          {
+
+                           if(trade.PositionModify(posTicket, sl, posTp))
+                              ;
+                             {
+                              Print(__FUNCTION__, " > Position #", posTicket, " was modified by MA tsl. BUY");
+                             }
+                          }
+                       }
+                    }
+
+                  // ---------------------
+                  // --- SELL POSITION ---
+                  // ---------------------
+
+                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL) // checking if the open position if has type sell
+                    {
+                     //---
+                     if(posSl > mainUpper && ask < mainUpper)
+                       {
+                        double sl = mainUpper;
+
+                        if(sl < posSl || posSl == 0)  //&& sl > mainUpper
+                          {
+                           if(trade.PositionModify(posTicket, sl, posTp))
+                              ;
+                             {
+                              Print(__FUNCTION__, " > Position #", posTicket, " was modified by MA tsl. SELL");
+                             }
+                          }
+                       }
+                    }
+                 }
+
+
+              } // PositionGetString(POSITION_SYMBOL) == _Symbol
+
+           } // PositionSelectByTicket(posTicket)
+
+        } // for loop
+
+      Comment(text);
+      text="";
+     } // if(barsTotal != bars && totalPos > 0)
+  } // OnTick
