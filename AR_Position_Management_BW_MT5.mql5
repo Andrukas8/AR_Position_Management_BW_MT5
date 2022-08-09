@@ -5,15 +5,15 @@
 //+------------------------------------------------------------------+
 #include <Trade/Trade.mqh>
 
-input ENUM_TIMEFRAMES TimeFrame = 1; // Time frame
-input int TslOffsetPoints = 5; // Points above/below the MA
-
-input int MaPeriod = 13; // MA Period
-input int MaShift = 8; // MA Shift
+input ENUM_TIMEFRAMES TimeFrame = 5; // Time frame
+input int TslOffsetPoints = 20; // Points above/below the MA
+input double breakevenRatio = 1; // Break Even Ratio
+input int MaPeriod = 8; // MA Period
+input int MaShift = 5; // MA Shift
 
 input ENUM_MA_METHOD TslMaMethod = MODE_SMMA; // MA Method
 input ENUM_APPLIED_PRICE TslMaAppPrice = PRICE_CLOSE; // MA Price
-input double breakevenRatio = 0.2;
+
 int barsTotal;
 
 double mainUpper = 0;
@@ -31,7 +31,6 @@ int handleFractal;
 int handleMA;
 
 string text;
-
 
 struct StopLoss
   {
@@ -52,8 +51,6 @@ int OnInit()
 
    long totalPos = PositionsTotal();
 
-
-
    for(int i = 0; i < totalPos; i++)
      {
       ulong originalPosTicket = PositionGetTicket(i);
@@ -70,8 +67,6 @@ int OnInit()
            }
         }
      }
-
-
 
    Print("Init successful");
 
@@ -232,7 +227,6 @@ void OnTick()
 
                  } // end of moving average
 
-
                //+------------------------------------------------------------------+
                //|         Break Even                                               |
                //+------------------------------------------------------------------+
@@ -279,15 +273,9 @@ void OnTick()
 
                // -----------------------
 
-
               } // PositionGetString(POSITION_SYMBOL) == _Symbol
 
            } // PositionSelectByTicket(posTicket)
-
-
-
-
-
 
         } // for loop
 
@@ -295,16 +283,3 @@ void OnTick()
       text="";
      } // if(barsTotal != bars && totalPos > 0)
   } // OnTick
-
-//+------------------------------------------------------------------+
-
-//+------------------------------------------------------------------+
-
-//+------------------------------------------------------------------+
-
-
-//+------------------------------------------------------------------+
-
-//+------------------------------------------------------------------+
-
-//+------------------------------------------------------------------+
