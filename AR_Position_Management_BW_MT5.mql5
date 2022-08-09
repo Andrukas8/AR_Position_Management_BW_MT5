@@ -5,14 +5,15 @@
 //+------------------------------------------------------------------+
 #include <Trade/Trade.mqh>
 
-input ENUM_TIMEFRAMES TimeFrame = 5; // Time frame
-input int TslOffsetPoints = 20; // Points above/below the MA
+input ENUM_TIMEFRAMES TimeFrame = 1; // Time frame
+input int TslOffsetPoints = 5; // Points above/below the MA
 
-input int MaPeriod = 8; // MA Period
-input int MaShift = 5; // MA Shift
+input int MaPeriod = 13; // MA Period
+input int MaShift = 8; // MA Shift
 
 input ENUM_MA_METHOD TslMaMethod = MODE_SMMA; // MA Method
 input ENUM_APPLIED_PRICE TslMaAppPrice = PRICE_CLOSE; // MA Price
+input double breakevenRatio = 0.2;
 int barsTotal;
 
 double mainUpper = 0;
@@ -21,7 +22,7 @@ double mainLower = 0;
 double mainUpperFractal = 0;
 double mainLowerFractal = 0;
 
-input bool fractalsTSL = false;
+input bool fractalsTSL = true;
 input bool movingAverageTSL = true;
 
 int maShift;
@@ -31,6 +32,16 @@ int handleMA;
 
 string text;
 
+
+struct StopLoss
+  {
+   ulong             posTicketArr;
+   double            posSlArr;
+  };
+
+StopLoss originalPosSlArr[];
+
+
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
@@ -39,7 +50,30 @@ int OnInit()
    handleFractal = iFractals(_Symbol, TimeFrame);
    handleMA = iMA(_Symbol, TimeFrame, MaPeriod, MaShift, TslMaMethod, TslMaAppPrice);
 
-   text = "-----------------------------\nPosition Management EA\n";
+   long totalPos = PositionsTotal();
+
+
+
+   for(int i = 0; i < totalPos; i++)
+     {
+      ulong originalPosTicket = PositionGetTicket(i);
+      if(PositionSelectByTicket(originalPosTicket))
+
+        {
+         double originalPosSl = NormalizeDouble(PositionGetDouble(POSITION_SL),4);
+         if(PositionGetString(POSITION_SYMBOL) == _Symbol)
+           {
+            ArrayResize(originalPosSlArr,i+1);
+            originalPosSlArr[i].posTicketArr = originalPosTicket;
+            originalPosSlArr[i].posSlArr = originalPosSl;
+
+           }
+        }
+     }
+
+
+
+   Print("Init successful");
 
    return (INIT_SUCCEEDED);
   }
@@ -81,11 +115,12 @@ void OnTick()
          mainLower = NormalizeDouble(fracLower[0] - TslOffsetPoints * _Point, 4);
         }
 
+      text = "-----------------------------\nPosition Management EA\n";
       text += "------------------------------\n";
-      text += "Upper Fractal =>" + DoubleToString(mainUpper, 4) + "\n";
-      text += "Lower Fractal =>" + DoubleToString(mainLower, 4) + "\n";
-      text += "MA: Period = " +TslMaMethod+  " | Shift = " + MaShift + " | Type = " + TslMaMethod + " | TF = "  + TimeFrame + "\n";
-      text += "Fractal TSL = [ " + fractalsTSL + " ]\n"+ "Moving Average TSL = [ " + movingAverageTSL + " ]\n";
+      text += "Upper Fractal = " + DoubleToString(mainUpper, 4) + "\n";
+      text += "Lower Fractal = " + DoubleToString(mainLower, 4) + "\n";
+      text += "MA: Period = " + (string)MaPeriod +  " | Shift = " + (string)MaShift + " | TF = "  + (string)TimeFrame + "\n";
+      text += "Fractal TSL = [ " + (string)fractalsTSL + " ]\n"+ "Moving Average TSL = [ " + (string)movingAverageTSL + " ]\n";
 
       for(int i = 0; i < totalPos; i++)
         {
@@ -96,16 +131,18 @@ void OnTick()
             if(PositionGetString(POSITION_SYMBOL) == _Symbol)
               {
                CTrade trade;
-               double posOpenPrice = PositionGetDouble(POSITION_PRICE_OPEN);
-               double posSl = PositionGetDouble(POSITION_SL);
-               double posTp = PositionGetDouble(POSITION_TP);
+               double posOpenPrice = NormalizeDouble(PositionGetDouble(POSITION_PRICE_OPEN),4);
+               double posSl = NormalizeDouble(PositionGetDouble(POSITION_SL),4);
+               double posTp = NormalizeDouble(PositionGetDouble(POSITION_TP),4);
 
-               double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-               double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+               double bid = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_BID),4);
+               double ask = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_ASK),4);
+
+               double ma[];
+               CopyBuffer(handleMA,MAIN_LINE,1,MaShift,ma);
 
                if(fractalsTSL)
                  {
-
                   // --------------------
                   // --- BUY POSITION ---
                   // --------------------
@@ -113,16 +150,14 @@ void OnTick()
                   if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)  // checking if the open position if has type BUY
                     {
                      // ---
-
                      if(posSl < mainLower && bid > mainLower)
                        {
                         double sl = mainLower;
 
                         if(sl > posSl)
                           {
+                           if(trade.PositionModify(posTicket, sl, posTp));
 
-                           if(trade.PositionModify(posTicket, sl, posTp))
-                              ;
                              {
                               Print(__FUNCTION__, " > Position #", posTicket, " was modified by Fractal tsl. BUY");
                              }
@@ -142,15 +177,15 @@ void OnTick()
 
                         if(sl < posSl || posSl == 0)  //&& sl > mainUpper
                           {
-                           if(trade.PositionModify(posTicket, sl, posTp))
-                              ;
+                           if(trade.PositionModify(posTicket, sl, posTp));
+
                              {
                               Print(__FUNCTION__, " > Position #", posTicket, " was modified by Fractal tsl. SELL");
                              }
                           }
                        }
                     }
-                 }
+                 } // end of if fractals
 
                if(movingAverageTSL)
                  {
@@ -159,21 +194,17 @@ void OnTick()
                   // --- BUY POSITION ---
                   // --------------------
 
-                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)  // checking if the open position if has type BUY
+                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
                     {
-                     // ---
-
-                     if(posSl < mainLower && bid > mainLower)
+                     if(ArraySize(ma) > 0)
                        {
-                        double sl = mainLower;
+                        double sl = NormalizeDouble(ma[MaShift - 1] - TslOffsetPoints * _Point,4);
 
-                        if(sl > posSl)
+                        if(sl > posSl && sl < bid)
                           {
-
-                           if(trade.PositionModify(posTicket, sl, posTp))
-                              ;
+                           if(trade.PositionModify(posTicket,sl,posTp));
                              {
-                              Print(__FUNCTION__, " > Position #", posTicket, " was modified by MA tsl. BUY");
+                              Print(__FUNCTION__," > Position #",posTicket," was modified by ma tsl.");
                              }
                           }
                        }
@@ -183,29 +214,80 @@ void OnTick()
                   // --- SELL POSITION ---
                   // ---------------------
 
-                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL) // checking if the open position if has type sell
+                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)
                     {
-                     //---
-                     if(posSl > mainUpper && ask < mainUpper)
+                     if(ArraySize(ma) > 0)
                        {
-                        double sl = mainUpper;
-
-                        if(sl < posSl || posSl == 0)  //&& sl > mainUpper
+                        double sl = NormalizeDouble(ma[MaShift - 1] + TslOffsetPoints * _Point,4);
+                        if(sl < posSl || posSl == 0)
                           {
-                           if(trade.PositionModify(posTicket, sl, posTp))
-                              ;
+                           if(trade.PositionModify(posTicket,sl,posTp));
                              {
-                              Print(__FUNCTION__, " > Position #", posTicket, " was modified by MA tsl. SELL");
+                              Print(__FUNCTION__," > Position #",posTicket," was modified by ma tsl.");
                              }
+                          }
+
+                       }
+                    }
+
+                 } // end of moving average
+
+
+               //+------------------------------------------------------------------+
+               //|         Break Even                                               |
+               //+------------------------------------------------------------------+
+
+               double oldPosSl;
+
+               for(int j=0; j<originalPosSlArr.Size(); j++)
+                 {
+                  if(originalPosSlArr[j].posTicketArr==posTicket)
+                    {
+                     oldPosSl = NormalizeDouble(originalPosSlArr[j].posSlArr,4);
+                    }
+                 }
+
+               if(breakevenRatio > 0 && NormalizeDouble(posOpenPrice,4) != oldPosSl && posOpenPrice != posSl)
+                 {                  
+                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)  // checking if the open position if has type BUY
+                    {
+                     if(NormalizeDouble(bid - posOpenPrice,4) > NormalizeDouble((posOpenPrice - oldPosSl)*breakevenRatio,4))
+                       {
+                        double sl = posOpenPrice;
+                        if(trade.PositionModify(posTicket, sl, posTp));
+
+                          {
+                           Print(__FUNCTION__, " > Position #", posTicket, " was modified by Breakeven BUY");
                           }
                        }
                     }
-                 }
+
+                  if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL) // checking if the open position has type SELL
+                    {
+                     if(NormalizeDouble(posOpenPrice - ask,4) > NormalizeDouble((oldPosSl - posOpenPrice)*breakevenRatio,4))
+                       {
+                        double sl = posOpenPrice;
+                        if(trade.PositionModify(posTicket, sl, posTp));
+
+                          {
+                           Print(__FUNCTION__, " > Position #", posTicket, " was modified by Breakeven SELL");
+                          }
+                       }
+
+                    }
+                 } // Breakeven ratio > 0
+
+               // -----------------------
 
 
               } // PositionGetString(POSITION_SYMBOL) == _Symbol
 
            } // PositionSelectByTicket(posTicket)
+
+
+
+
+
 
         } // for loop
 
@@ -213,3 +295,16 @@ void OnTick()
       text="";
      } // if(barsTotal != bars && totalPos > 0)
   } // OnTick
+
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+
+
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
