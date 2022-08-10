@@ -5,14 +5,14 @@
 //+------------------------------------------------------------------+
 #include <Trade/Trade.mqh>
 
-input ENUM_TIMEFRAMES TimeFrame = 5; // Time frame
+input ENUM_TIMEFRAMES TimeFrame = PERIOD_H1; // Time frame
 input int TslOffsetPoints = 20; // Points above/below the MA
 input double breakevenRatio = 1; // Break Even Ratio
 input int MaPeriod = 8; // MA Period
 input int MaShift = 5; // MA Shift
 
 input ENUM_MA_METHOD TslMaMethod = MODE_SMMA; // MA Method
-input ENUM_APPLIED_PRICE TslMaAppPrice = PRICE_CLOSE; // MA Price
+input ENUM_APPLIED_PRICE TslMaAppPrice = PRICE_MEDIAN; // MA Price
 
 int barsTotal;
 
@@ -22,8 +22,8 @@ double mainLower = 0;
 double mainUpperFractal = 0;
 double mainLowerFractal = 0;
 
-input bool fractalsTSL = true;
-input bool movingAverageTSL = true;
+input bool fractalsTSL = false;
+input bool movingAverageTSL = false;
 
 int maShift;
 
@@ -79,7 +79,8 @@ int OnInit()
 void OnDeinit(const int reason)
   {
 
-
+//--- clear comments
+   Comment("");
   }
 
 //+------------------------------------------------------------------+
@@ -151,7 +152,8 @@ void OnTick()
 
                         if(sl > posSl)
                           {
-                           if(trade.PositionModify(posTicket, sl, posTp));
+                           Print("sl > posSl ",sl," ", posSl);
+                           if(trade.PositionModify(posTicket, sl, posTp))//;
 
                              {
                               Print(__FUNCTION__, " > Position #", posTicket, " was modified by Fractal tsl. BUY");
@@ -172,7 +174,7 @@ void OnTick()
 
                         if(sl < posSl || posSl == 0)  //&& sl > mainUpper
                           {
-                           if(trade.PositionModify(posTicket, sl, posTp));
+                           if(trade.PositionModify(posTicket, sl, posTp))//;
 
                              {
                               Print(__FUNCTION__, " > Position #", posTicket, " was modified by Fractal tsl. SELL");
@@ -197,7 +199,7 @@ void OnTick()
 
                         if(sl > posSl && sl < bid)
                           {
-                           if(trade.PositionModify(posTicket,sl,posTp));
+                           if(trade.PositionModify(posTicket,sl,posTp))//;
                              {
                               Print(__FUNCTION__," > Position #",posTicket," was modified by ma tsl.");
                              }
@@ -216,7 +218,7 @@ void OnTick()
                         double sl = NormalizeDouble(ma[MaShift - 1] + TslOffsetPoints * _Point,4);
                         if(sl < posSl || posSl == 0)
                           {
-                           if(trade.PositionModify(posTicket,sl,posTp));
+                           if(trade.PositionModify(posTicket,sl,posTp))//;
                              {
                               Print(__FUNCTION__," > Position #",posTicket," was modified by ma tsl.");
                              }
@@ -242,13 +244,14 @@ void OnTick()
                  }
 
                if(breakevenRatio > 0 && NormalizeDouble(posOpenPrice,4) != oldPosSl && posOpenPrice != posSl)
-                 {                  
+                 {
                   if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)  // checking if the open position if has type BUY
                     {
-                     if(NormalizeDouble(bid - posOpenPrice,4) > NormalizeDouble((posOpenPrice - oldPosSl)*breakevenRatio,4))
+                     if(NormalizeDouble(bid - posOpenPrice,4) > NormalizeDouble((posOpenPrice - oldPosSl)*breakevenRatio,4)
+                        && posSl < posOpenPrice)
                        {
                         double sl = posOpenPrice;
-                        if(trade.PositionModify(posTicket, sl, posTp));
+                        if(trade.PositionModify(posTicket, sl, posTp))//;
 
                           {
                            Print(__FUNCTION__, " > Position #", posTicket, " was modified by Breakeven BUY");
@@ -258,10 +261,11 @@ void OnTick()
 
                   if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL) // checking if the open position has type SELL
                     {
-                     if(NormalizeDouble(posOpenPrice - ask,4) > NormalizeDouble((oldPosSl - posOpenPrice)*breakevenRatio,4))
+                     if(NormalizeDouble(posOpenPrice - ask,4) > NormalizeDouble((oldPosSl - posOpenPrice)*breakevenRatio,4)
+                        && posSl > posOpenPrice)
                        {
                         double sl = posOpenPrice;
-                        if(trade.PositionModify(posTicket, sl, posTp));
+                        if(trade.PositionModify(posTicket, sl, posTp))//;
 
                           {
                            Print(__FUNCTION__, " > Position #", posTicket, " was modified by Breakeven SELL");
