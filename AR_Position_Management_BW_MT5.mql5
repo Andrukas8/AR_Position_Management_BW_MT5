@@ -57,7 +57,7 @@ int OnInit()
       if(PositionSelectByTicket(originalPosTicket))
 
         {
-         double originalPosSl = NormalizeDouble(PositionGetDouble(POSITION_SL),4);
+         double originalPosSl = NormalizeDouble(PositionGetDouble(POSITION_SL),5);
          if(PositionGetString(POSITION_SYMBOL) == _Symbol)
            {
             ArrayResize(originalPosSlArr,i+1);
@@ -103,12 +103,12 @@ void OnTick()
 
       if(fracUpper[0] != EMPTY_VALUE)
         {
-         mainUpper = NormalizeDouble(fracUpper[0] + TslOffsetPoints * _Point, 4);
+         mainUpper = NormalizeDouble(fracUpper[0] + TslOffsetPoints * _Point, 5);
         }
 
       if(fracLower[0] != EMPTY_VALUE)
         {
-         mainLower = NormalizeDouble(fracLower[0] - TslOffsetPoints * _Point, 4);
+         mainLower = NormalizeDouble(fracLower[0] - TslOffsetPoints * _Point, 5);
         }
 
       text = "-----------------------------\nPosition Management EA\n";
@@ -117,6 +117,7 @@ void OnTick()
       text += "Lower Fractal = " + DoubleToString(mainLower, 4) + "\n";
       text += "MA: Period = " + (string)MaPeriod +  " | Shift = " + (string)MaShift + " | TF = "  + (string)TimeFrame + "\n";
       text += "Fractal TSL = [ " + (string)fractalsTSL + " ]\n"+ "Moving Average TSL = [ " + (string)movingAverageTSL + " ]\n";
+      text += "BE Ratio = " + breakevenRatio;
 
       for(int i = 0; i < totalPos; i++)
         {
@@ -127,12 +128,12 @@ void OnTick()
             if(PositionGetString(POSITION_SYMBOL) == _Symbol)
               {
                CTrade trade;
-               double posOpenPrice = NormalizeDouble(PositionGetDouble(POSITION_PRICE_OPEN),4);
-               double posSl = NormalizeDouble(PositionGetDouble(POSITION_SL),4);
-               double posTp = NormalizeDouble(PositionGetDouble(POSITION_TP),4);
+               double posOpenPrice = NormalizeDouble(PositionGetDouble(POSITION_PRICE_OPEN),5);
+               double posSl = NormalizeDouble(PositionGetDouble(POSITION_SL),5);
+               double posTp = NormalizeDouble(PositionGetDouble(POSITION_TP),5);
 
-               double bid = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_BID),4);
-               double ask = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_ASK),4);
+               double bid = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_BID),5);
+               double ask = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_ASK),5);
 
                double ma[];
                CopyBuffer(handleMA,MAIN_LINE,1,MaShift,ma);
@@ -195,7 +196,7 @@ void OnTick()
                     {
                      if(ArraySize(ma) > 0)
                        {
-                        double sl = NormalizeDouble(ma[MaShift - 1] - TslOffsetPoints * _Point,4);
+                        double sl = NormalizeDouble(ma[MaShift - 1] - TslOffsetPoints * _Point,5);
 
                         if(sl > posSl && sl < bid)
                           {
@@ -215,7 +216,7 @@ void OnTick()
                     {
                      if(ArraySize(ma) > 0)
                        {
-                        double sl = NormalizeDouble(ma[MaShift - 1] + TslOffsetPoints * _Point,4);
+                        double sl = NormalizeDouble(ma[MaShift - 1] + TslOffsetPoints * _Point,5);
                         if(sl < posSl || posSl == 0)
                           {
                            if(trade.PositionModify(posTicket,sl,posTp))//;
@@ -247,7 +248,7 @@ void OnTick()
                  {
                   if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)  // checking if the open position if has type BUY
                     {
-                     if(NormalizeDouble(bid - posOpenPrice,4) > NormalizeDouble((posOpenPrice - oldPosSl)*breakevenRatio,4)
+                     if(NormalizeDouble(bid - posOpenPrice,4) > NormalizeDouble((posOpenPrice - oldPosSl)*breakevenRatio,5)
                         && posSl < posOpenPrice)
                        {
                         double sl = posOpenPrice;
@@ -261,7 +262,7 @@ void OnTick()
 
                   if(PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL) // checking if the open position has type SELL
                     {
-                     if(NormalizeDouble(posOpenPrice - ask,4) > NormalizeDouble((oldPosSl - posOpenPrice)*breakevenRatio,4)
+                     if(NormalizeDouble(posOpenPrice - ask,4) > NormalizeDouble((oldPosSl - posOpenPrice)*breakevenRatio,5)
                         && posSl > posOpenPrice)
                        {
                         double sl = posOpenPrice;
